@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+
+  @@map("users")
+}
+
+model Application {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  applicationId String            @unique // Human readable ID like MINDEF-123456
+  userId        String?           @db.ObjectId
+  user          User?             @relation(fields: [userId], references: [id])
+  
+  // Application type and status
+  idType        IDCardType
+  status        ApplicationStatus @default(PENDING_REVIEW)
+  
+  // Personal Information
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime
+  placeOfBirth  String
+  nationality   String
+  gender        Gender
+  maritalStatus MaritalStatus
+  profession    String?
+  address       String
+  phoneNumber   String
+  email         String
+  
+  // Emergency Contact
+  emergencyContact String?
+  emergencyPhone   String?
+  
+  // Parent Information (for first-time applicants)
+  fatherName       String?
+  fatherProfession String?
+  motherName       String?
+  motherProfession String?
+  
+  // Previous ID Information (for renewals/replacements)
+  previousIdNumber String?
+  expiryDate       DateTime?
+  
+  // Documents
+  documents        Document[]
+  
+  // Payment Information
+  paymentAmount    Float
+  paymentStatus    PaymentStatus @default(PENDING)
+  paymentMethod    String?
+  paymentReference String?
+  paidAt           DateTime?
+  
+  // Appointment Information
+  appointmentId    String?       @db.ObjectId
+  appointment      Appointment?  @relation(fields: [appointmentId], references: [id])
+  
+  // Review Information
+  reviewedBy       String?       @db.ObjectId
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  
+  // Timestamps
+  submittedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("applications")
+}
+
+model Document {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  applicationId String      @db.ObjectId
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  type          DocumentType
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  url           String
+  cloudinaryId  String?
+  
+  uploadedAt    DateTime    @default(now())
+
+  @@map("documents")
+}
+
+model Appointment {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Date and time
+  date         DateTime
+  timeSlot     String        // e.g., "09:00"
+  
+  // Location
+  locationId   String        @db.ObjectId
+  location     Location      @relation(fields: [locationId], references: [id])
+  
+  // Status
+  status       AppointmentStatus @default(SCHEDULED)
+  
+  // Applications linked to this appointment
+  applications Application[]
+  
+  // Notes
+  notes        String?
+  
+  // Timestamps
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("appointments")
+}
+
+model Location {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  address      String
+  district     String
+  workingHours String        // e.g., "8:00 AM - 4:00 PM"
+  availableDays Int[]        // [1,2,3,4,5] for Monday-Friday
+  capacity     Int           @default(20)
+  isActive     Boolean       @default(true)
+  
+  appointments Appointment[]
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("locations")
+}
+
+model Payment {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  applicationId    String        @db.ObjectId
+  
+  amount           Float
+  currency         String        @default("FCFA")
+  method           PaymentMethod
+  status           PaymentStatus @default(PENDING)
+  
+  // Payment provider details
+  providerRef      String?       // Reference from payment provider
+  providerResponse Json?         // Full response from payment provider
+  
+  // Transaction details
+  transactionId    String?       @unique
+  description      String?
+  
+  // Timestamps
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum IDCardType {
+  FIRST
+  RENEWAL
+  LOST
+  DAMAGED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  PENDING_REVIEW
+  DOCUMENT_REVIEW
+  PAYMENT_PENDING
+  PAYMENT_COMPLETED
+  APPOINTMENT_SCHEDULED
+  BIOMETRIC_COMPLETED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum DocumentType {
+  PHOTO
+  BIRTH_CERTIFICATE
+  PROOF_OF_ADDRESS
+  PREVIOUS_ID
+  POLICE_REPORT
+  PASSPORT
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  MOBILE_MONEY
+  BANK_TRANSFER
+  CASH
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
